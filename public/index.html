@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,
+    initial-scale=1,
+    maximum-scale=1,
+    user-scalable=no"
+  >
+
+  <title>STRIKEZONE FPS</title>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div id="menu">
+    <h1>STRIKEZONE</h1>
+    <p>ONLINE FPS</p>
+
+    <input
+      id="username"
+      maxlength="16"
+      placeholder="Enter username"
+    >
+
+    <button id="start">
+      DEPLOY
+    </button>
+  </div>
+
+  <div id="hud" class="hidden">
+
+    <div id="crosshair">+</div>
+
+    <div id="score">
+      🔵 0 — 0 🔴
+    </div>
+
+    <div id="health">
+      ❤️ 100 HP
+    </div>
+
+    <div id="ammo">
+      🔫 30 / 120
+    </div>
+
+    <div id="controls">
+      WASD = Move<br>
+      Mouse = Aim<br>
+      Click = Shoot<br>
+      R = Reload
+    </div>
+
+    <div id="mobileControls">
+      <button id="fire">🔥</button>
+      <button id="reload">↻</button>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+  <script src="game.js"></script>
+
+</body>
+</html>
