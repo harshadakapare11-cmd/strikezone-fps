@@ -5,6 +5,12 @@
 
 const scene = new THREE.Scene();
 
+scene.add(
+    new THREE.Mesh(
+        new THREE.BoxGeometry(3, 3, 3),
+        new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    )
+);
 scene.background = new THREE.Color(0x101010);
 
 scene.fog = new THREE.Fog(
@@ -27,7 +33,7 @@ const camera = new THREE.PerspectiveCamera(
 
 camera.position.set(0, 1.6, 0);
 
-
+camera.position.z = 8;
 // ==========================================
 // RENDERER
 // ==========================================
