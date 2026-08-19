@@ -1,6 +1,6 @@
 // ==========================================
-// STRIKEZONE - MULTIPLAYER FPS CLIENT
-// Works with your existing server.js
+// STRIKEZONE - MULTIPLAYER FPS
+// PC + MOBILE
 // ==========================================
 
 const scene = new THREE.Scene();
@@ -120,17 +120,10 @@ function wall(x, y, z, w, h, d) {
     scene.add(mesh);
 }
 
-
-// Outer walls
-
 wall(0, 3, -25, 50, 6, 1);
 wall(0, 3, 25, 50, 6, 1);
-
 wall(-25, 3, 0, 1, 6, 50);
 wall(25, 3, 0, 1, 6, 50);
-
-
-// Cover
 
 wall(-8, 2, -6, 7, 4, 2);
 wall(8, 2, 6, 7, 4, 2);
@@ -139,18 +132,13 @@ wall(0, 2, 13, 6, 4, 2);
 
 
 // ==========================================
-// MULTIPLAYER CONNECTION
+// MULTIPLAYER
 // ==========================================
 
 let socket;
-
 let myId = null;
 
 const remotePlayers = new Map();
-
-
-// Automatically use the same server
-// that served the webpage.
 
 const socketProtocol =
     location.protocol === "https:"
@@ -163,21 +151,15 @@ const socketURL =
 
 function connectToServer() {
 
-    console.log(
-        "Connecting to:",
-        socketURL
-    );
+    console.log("Connecting to:", socketURL);
 
     socket = new WebSocket(socketURL);
 
-
     socket.onopen = () => {
-
         console.log(
             "🔥 CONNECTED TO STRIKEZONE SERVER"
         );
     };
-
 
     socket.onclose = () => {
 
@@ -191,15 +173,12 @@ function connectToServer() {
         );
     };
 
-
     socket.onerror = error => {
-
         console.log(
             "WebSocket error:",
             error
         );
     };
-
 
     socket.onmessage = event => {
 
@@ -220,7 +199,6 @@ function connectToServer() {
     };
 }
 
-
 connectToServer();
 
 
@@ -230,20 +208,9 @@ connectToServer();
 
 function handleServerMessage(data) {
 
-    // -------------------------------
-    // WELCOME
-    // -------------------------------
-
     if (data.type === "welcome") {
 
         myId = data.id;
-
-        console.log(
-            "YOUR PLAYER ID:",
-            myId
-        );
-
-        // Add players already online
 
         if (data.players) {
 
@@ -254,11 +221,6 @@ function handleServerMessage(data) {
 
         return;
     }
-
-
-    // -------------------------------
-    // STATE
-    // -------------------------------
 
     if (data.type === "state") {
 
@@ -271,11 +233,6 @@ function handleServerMessage(data) {
         return;
     }
 
-
-    // -------------------------------
-    // SHOOT
-    // -------------------------------
-
     if (data.type === "shot") {
 
         if (data.id !== myId) {
@@ -286,19 +243,7 @@ function handleServerMessage(data) {
         return;
     }
 
-
-    // -------------------------------
-    // KILL
-    // -------------------------------
-
     if (data.type === "kill") {
-
-        console.log(
-            "KILL:",
-            data.killer,
-            "→",
-            data.victim
-        );
 
         if (data.killer === myId) {
 
@@ -311,12 +256,11 @@ function handleServerMessage(data) {
 
 
 // ==========================================
-// CREATE PLAYER
+// PLAYERS
 // ==========================================
 
 function createOrUpdatePlayer(player) {
 
-    // Don't create ourselves
     if (player.id === myId) {
 
         updateLocalPlayer(player);
@@ -324,18 +268,15 @@ function createOrUpdatePlayer(player) {
         return;
     }
 
-
     let mesh =
         remotePlayers.get(player.id);
 
-
-    // Create new player
-
     if (!mesh) {
 
-        mesh = createPlayerMesh(
-            player.team
-        );
+        mesh =
+            createPlayerMesh(
+                player.team
+            );
 
         mesh.userData.playerId =
             player.id;
@@ -348,89 +289,56 @@ function createOrUpdatePlayer(player) {
         );
     }
 
-
-    // Update position
-
     mesh.position.set(
         player.x,
         1,
         player.z
     );
 
-
-    // Health
-
     mesh.userData.health =
         player.health;
-
 }
 
-
-// ==========================================
-// PLAYER MODEL
-// ==========================================
 
 function createPlayerMesh(team) {
 
     const group =
         new THREE.Group();
 
-
     const color =
         team === "blue"
             ? 0x2277ff
             : 0xff3333;
 
-
-    // Body
-
-    const bodyGeometry =
-        new THREE.BoxGeometry(
-            0.8,
-            1.4,
-            0.5
-        );
-
-    const bodyMaterial =
-        new THREE.MeshStandardMaterial({
-            color: color
-        });
-
     const body =
         new THREE.Mesh(
-            bodyGeometry,
-            bodyMaterial
+            new THREE.BoxGeometry(
+                0.8,
+                1.4,
+                0.5
+            ),
+            new THREE.MeshStandardMaterial({
+                color: color
+            })
         );
-
-    body.position.y = 0;
 
     group.add(body);
 
-
-    // Head
-
-    const headGeometry =
-        new THREE.SphereGeometry(
-            0.3,
-            16,
-            16
-        );
-
-    const headMaterial =
-        new THREE.MeshStandardMaterial({
-            color: 0xffc7a0
-        });
-
     const head =
         new THREE.Mesh(
-            headGeometry,
-            headMaterial
+            new THREE.SphereGeometry(
+                0.3,
+                16,
+                16
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0xffc7a0
+            })
         );
 
     head.position.y = 1;
 
     group.add(head);
-
 
     return group;
 }
@@ -442,8 +350,6 @@ function createPlayerMesh(team) {
 
 function updateLocalPlayer(player) {
 
-    // Server is authoritative
-
     camera.position.x =
         player.x;
 
@@ -453,9 +359,6 @@ function updateLocalPlayer(player) {
     camera.position.z =
         player.z;
 
-
-    // Update health
-
     const health =
         document.querySelector(".health");
 
@@ -464,9 +367,6 @@ function updateLocalPlayer(player) {
         health.textContent =
             `Health: ${Math.round(player.health)}`;
     }
-
-
-    // Score
 
     const score =
         document.getElementById("score");
@@ -480,7 +380,7 @@ function updateLocalPlayer(player) {
 
 
 // ==========================================
-// MOVEMENT
+// PC MOVEMENT
 // ==========================================
 
 const keys = {};
@@ -502,25 +402,42 @@ document.addEventListener(
 );
 
 
+// ==========================================
+// MOBILE INPUT
+// ==========================================
+
+let mobileForward = 0;
+let mobileRight = 0;
+
+let mobileSprint = false;
+
+let mobileLookActive = false;
+
+let lastTouchX = 0;
+let lastTouchY = 0;
+
+
+// ==========================================
+// CAMERA ROTATION
+// ==========================================
+
 let yaw = 0;
 let pitch = 0;
 
 let verticalVelocity = 0;
-
 let onGround = true;
 
 
+// ==========================================
+// MOVEMENT
+// ==========================================
+
 function updateMovement(delta) {
-
-    if (
-        document.pointerLockElement !==
-        renderer.domElement
-    ) return;
-
 
     let forward = 0;
     let right = 0;
 
+    // PC
 
     if (keys["KeyW"])
         forward += 1;
@@ -535,14 +452,19 @@ function updateMovement(delta) {
         right -= 1;
 
 
+    // MOBILE
+
+    forward += mobileForward;
+    right += mobileRight;
+
+
     const length =
         Math.hypot(
             forward,
             right
         );
 
-
-    if (length > 0) {
+    if (length > 1) {
 
         forward /= length;
         right /= length;
@@ -554,23 +476,19 @@ function updateMovement(delta) {
 
     if (
         keys["ShiftLeft"] ||
-        keys["ShiftRight"]
+        keys["ShiftRight"] ||
+        mobileSprint
     ) {
 
         speed = 9;
     }
 
 
-    // Forward direction
-
     const forwardX =
         -Math.sin(yaw);
 
     const forwardZ =
         -Math.cos(yaw);
-
-
-    // Right direction
 
     const rightX =
         Math.cos(yaw);
@@ -593,29 +511,12 @@ function updateMovement(delta) {
         ) * speed * delta;
 
 
-    // Jump
-
-    if (
-        keys["Space"] &&
-        onGround
-    ) {
-
-        verticalVelocity = 7;
-
-        onGround = false;
-    }
-
-
-    // Gravity
-
     verticalVelocity -=
         20 * delta;
 
     camera.position.y +=
         verticalVelocity * delta;
 
-
-    // Ground
 
     if (
         camera.position.y <= 1.6
@@ -628,8 +529,6 @@ function updateMovement(delta) {
         onGround = true;
     }
 
-
-    // Arena boundary
 
     camera.position.x =
         THREE.MathUtils.clamp(
@@ -646,9 +545,21 @@ function updateMovement(delta) {
         );
 
 
-    // Send position to server
-
     sendMovement();
+}
+
+
+// ==========================================
+// JUMP
+// ==========================================
+
+function jump() {
+
+    if (!onGround) return;
+
+    verticalVelocity = 7;
+
+    onGround = false;
 }
 
 
@@ -657,7 +568,6 @@ function updateMovement(delta) {
 // ==========================================
 
 let lastMovementSend = 0;
-
 
 function sendMovement() {
 
@@ -668,19 +578,14 @@ function sendMovement() {
         WebSocket.OPEN
     ) return;
 
-
-    const now = performance.now();
-
-
-    // 20 updates per second
+    const now =
+        performance.now();
 
     if (
         now - lastMovementSend < 50
     ) return;
 
-
     lastMovementSend = now;
-
 
     socket.send(
         JSON.stringify({
@@ -698,7 +603,7 @@ function sendMovement() {
 
 
 // ==========================================
-// MOUSE LOOK
+// PC MOUSE LOOK
 // ==========================================
 
 document.addEventListener(
@@ -710,14 +615,11 @@ document.addEventListener(
             renderer.domElement
         ) return;
 
-
         yaw -=
             event.movementX * 0.002;
 
-
         pitch -=
             event.movementY * 0.002;
-
 
         pitch =
             Math.max(
@@ -728,10 +630,8 @@ document.addEventListener(
                 )
             );
 
-
         camera.rotation.order =
             "YXZ";
-
 
         camera.rotation.y =
             yaw;
@@ -743,334 +643,171 @@ document.addEventListener(
 
 
 // ==========================================
-// START GAME
+// MOBILE LOOK
 // ==========================================
 
-const startScreen =
-    document.getElementById(
-        "start-screen"
-    );
+function mobileLookStart(event) {
 
-
-const startButton =
-    document.getElementById(
-        "start-button"
-    );
-
-
-startButton.addEventListener(
-    "click",
-    () => {
-
-        startScreen.style.display =
-            "none";
-
-
-        renderer.domElement
-            .requestPointerLock();
-    }
-);
-
-
-// ==========================================
-// SHOOTING
-// ==========================================
-
-const raycaster =
-    new THREE.Raycaster();
-
-
-let lastShot = 0;
-
-
-document.addEventListener(
-    "mousedown",
-    event => {
-
-        if (event.button !== 0)
-            return;
-
-
-        if (
-            document.pointerLockElement !==
-            renderer.domElement
-        )
-            return;
-
-
-        shoot();
-    }
-);
-
-
-function shoot() {
-
-    const now =
-        performance.now();
-
-
-    // Fire rate
-
-    if (
-        now - lastShot < 150
-    )
+    if (event.touches.length !== 1)
         return;
 
+    mobileLookActive = true;
 
-    lastShot = now;
+    lastTouchX =
+        event.touches[0].clientX;
 
-
-    // Tell server we fired
-
-    if (
-        socket &&
-        socket.readyState ===
-        WebSocket.OPEN
-    ) {
-
-        socket.send(
-            JSON.stringify({
-
-                type: "shoot"
-            })
-        );
-    }
+    lastTouchY =
+        event.touches[0].clientY;
+}
 
 
-    // Raycast
+function mobileLookMove(event) {
 
-    raycaster.setFromCamera(
-        new THREE.Vector2(0, 0),
-        camera
-    );
-
-
-    const targets =
-        [];
-
-
-    remotePlayers.forEach(
-        player => {
-
-            targets.push(player);
-        }
-    );
-
-
-    const hits =
-        raycaster.intersectObjects(
-            targets,
-            true
-        );
-
-
-    if (hits.length === 0)
+    if (!mobileLookActive)
         return;
 
-
-    let target =
-        hits[0].object;
-
-
-    // Find player group
-
-    while (
-        target.parent &&
-        !target.userData.playerId
-    ) {
-
-        target =
-            target.parent;
-    }
-
-
-    const targetId =
-        target.userData.playerId;
-
-
-    if (!targetId)
+    if (event.touches.length !== 1)
         return;
 
+    const touch =
+        event.touches[0];
 
-    // Tell server who we hit
+    const dx =
+        touch.clientX - lastTouchX;
 
-    if (
-        socket &&
-        socket.readyState ===
-        WebSocket.OPEN
-    ) {
+    const dy =
+        touch.clientY - lastTouchY;
 
-        socket.send(
-            JSON.stringify({
+    lastTouchX =
+        touch.clientX;
 
-                type: "damage",
+    lastTouchY =
+        touch.clientY;
 
-                target: targetId
-            })
+    yaw -= dx * 0.006;
+
+    pitch -= dy * 0.006;
+
+    pitch =
+        Math.max(
+            -1.5,
+            Math.min(
+                1.5,
+                pitch
+            )
         );
-    }
+
+    camera.rotation.order =
+        "YXZ";
+
+    camera.rotation.y =
+        yaw;
+
+    camera.rotation.x =
+        pitch;
+}
+
+
+function mobileLookEnd() {
+
+    mobileLookActive = false;
 }
 
 
 // ==========================================
-// REMOTE SHOOT EFFECT
+// MOBILE CONTROLS UI
 // ==========================================
 
-function showRemoteShot(id) {
+function createMobileControls() {
 
-    const player =
-        remotePlayers.get(id);
-
-
-    if (!player)
-        return;
-
-
-    const flash =
-        new THREE.PointLight(
-            0xffffaa,
-            5,
-            5
-        );
-
-
-    flash.position.set(
-        0,
-        0.5,
-        -0.7
-    );
-
-
-    player.add(flash);
-
-
-    setTimeout(
-        () => {
-
-            player.remove(flash);
-
-        },
-        70
-    );
-}
-
-
-// ==========================================
-// KILL MESSAGE
-// ==========================================
-
-function showKillMessage() {
-
-    const message =
+    const controls =
         document.createElement("div");
 
-
-    message.textContent =
-        "🔥 ELIMINATION +1";
-
-
-    message.style.position =
-        "fixed";
+    controls.id =
+        "mobile-controls";
 
 
-    message.style.top =
-        "45%";
+    const lookArea =
+        document.createElement("div");
+
+    lookArea.id =
+        "look-area";
+
+    controls.appendChild(
+        lookArea
+    );
 
 
-    message.style.left =
-        "50%";
+    const joystick =
+        document.createElement("div");
+
+    joystick.id =
+        "joystick";
 
 
-    message.style.transform =
-        "translate(-50%, -50%)";
+    const knob =
+        document.createElement("div");
+
+    knob.id =
+        "joystick-knob";
+
+    joystick.appendChild(
+        knob
+    );
+
+    controls.appendChild(
+        joystick
+    );
 
 
-    message.style.fontSize =
-        "30px";
+    function button(
+        id,
+        text
+    ) {
+
+        const btn =
+            document.createElement("button");
+
+        btn.id = id;
+
+        btn.className =
+            "mobile-button";
+
+        btn.textContent =
+            text;
+
+        controls.appendChild(
+            btn
+        );
+
+        return btn;
+    }
 
 
-    message.style.fontWeight =
-        "bold";
+    const shootButton =
+        button(
+            "shoot-button",
+            "SHOOT"
+        );
 
 
-    message.style.color =
-        "white";
+    const jumpButton =
+        button(
+            "jump-button",
+            "JUMP"
+        );
 
 
-    message.style.zIndex =
-        "999";
+    const sprintButton =
+        button(
+            "sprint-button",
+            "RUN"
+        );
 
 
     document.body.appendChild(
-        message
+        controls
     );
 
 
-    setTimeout(
-        () => {
-
-            message.remove();
-
-        },
-        1000
-    );
-}
-
-
-// ==========================================
-// WINDOW RESIZE
-// ==========================================
-
-window.addEventListener(
-    "resize",
-    () => {
-
-        camera.aspect =
-            window.innerWidth /
-            window.innerHeight;
-
-
-        camera.updateProjectionMatrix();
-
-
-        renderer.setSize(
-            window.innerWidth,
-            window.innerHeight
-        );
-    }
-);
-
-
-// ==========================================
-// GAME LOOP
-// ==========================================
-
-const clock =
-    new THREE.Clock();
-
-
-function animate() {
-
-    requestAnimationFrame(
-        animate
-    );
-
-
-    const delta =
-        Math.min(
-            clock.getDelta(),
-            0.05
-        );
-
-
-    updateMovement(delta);
-
-
-    renderer.render(
-        scene,
-        camera
-    );
-}
-
-
-animate();
+    //
