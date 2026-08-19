@@ -1,6 +1,7 @@
-// ======================================
-// FPS ARENA - 3D CLIENT
-// ======================================
+// ==========================================
+// STRIKEZONE - MULTIPLAYER FPS CLIENT
+// Works with your existing server.js
+// ==========================================
 
 const scene = new THREE.Scene();
 
@@ -13,9 +14,9 @@ scene.fog = new THREE.Fog(
 );
 
 
-// ======================================
+// ==========================================
 // CAMERA
-// ======================================
+// ==========================================
 
 const camera = new THREE.PerspectiveCamera(
     75,
@@ -24,12 +25,12 @@ const camera = new THREE.PerspectiveCamera(
     1000
 );
 
-camera.position.set(0, 2, 5);
+camera.position.set(0, 1.6, 0);
 
 
-// ======================================
+// ==========================================
 // RENDERER
-// ======================================
+// ==========================================
 
 const renderer = new THREE.WebGLRenderer({
     antialias: true
@@ -49,38 +50,38 @@ document
     .appendChild(renderer.domElement);
 
 
-// ======================================
+// ==========================================
 // LIGHTING
-// ======================================
+// ==========================================
 
-const ambientLight = new THREE.HemisphereLight(
+const ambient = new THREE.HemisphereLight(
     0xffffff,
     0x333333,
     2
 );
 
-scene.add(ambientLight);
+scene.add(ambient);
 
 const sun = new THREE.DirectionalLight(
     0xffffff,
     2
 );
 
-sun.position.set(10, 20, 10);
+sun.position.set(20, 30, 10);
 
 scene.add(sun);
 
 
-// ======================================
+// ==========================================
 // FLOOR
-// ======================================
+// ==========================================
 
 const floorGeometry =
     new THREE.PlaneGeometry(100, 100);
 
 const floorMaterial =
     new THREE.MeshStandardMaterial({
-        color: 0x333333
+        color: 0x303030
     });
 
 const floor =
@@ -94,147 +95,393 @@ floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 
 
-// ======================================
-// WALL FUNCTION
-// ======================================
+// ==========================================
+// ARENA WALLS
+// ==========================================
 
-function createWall(
-    x,
-    y,
-    z,
-    width,
-    height,
-    depth
-) {
+function wall(x, y, z, w, h, d) {
 
     const geometry =
-        new THREE.BoxGeometry(
-            width,
-            height,
-            depth
-        );
+        new THREE.BoxGeometry(w, h, d);
 
     const material =
         new THREE.MeshStandardMaterial({
             color: 0x555555
         });
 
-    const wall =
+    const mesh =
         new THREE.Mesh(
             geometry,
             material
         );
 
-    wall.position.set(x, y, z);
+    mesh.position.set(x, y, z);
 
-    scene.add(wall);
-
-    return wall;
+    scene.add(mesh);
 }
 
 
-// ======================================
-// ARENA WALLS
-// ======================================
+// Outer walls
 
-createWall(
-    0,
-    3,
-    -25,
-    50,
-    6,
-    1
-);
+wall(0, 3, -25, 50, 6, 1);
+wall(0, 3, 25, 50, 6, 1);
 
-createWall(
-    0,
-    3,
-    25,
-    50,
-    6,
-    1
-);
-
-createWall(
-    -25,
-    3,
-    0,
-    1,
-    6,
-    50
-);
-
-createWall(
-    25,
-    3,
-    0,
-    1,
-    6,
-    50
-);
+wall(-25, 3, 0, 1, 6, 50);
+wall(25, 3, 0, 1, 6, 50);
 
 
-// ======================================
-// COVER
-// ======================================
+// Cover
 
-createWall(
-    -8,
-    2,
-    -5,
-    8,
-    4,
-    2
-);
-
-createWall(
-    8,
-    2,
-    5,
-    8,
-    4,
-    2
-);
-
-createWall(
-    0,
-    2,
-    -12,
-    5,
-    4,
-    2
-);
+wall(-8, 2, -6, 7, 4, 2);
+wall(8, 2, 6, 7, 4, 2);
+wall(0, 2, -13, 6, 4, 2);
+wall(0, 2, 13, 6, 4, 2);
 
 
-// ======================================
-// PLAYER
-// ======================================
+// ==========================================
+// MULTIPLAYER CONNECTION
+// ==========================================
 
-const player = {
+let socket;
 
-    height: 1.8,
+let myId = null;
 
-    speed: 5,
-
-    sprintSpeed: 9,
-
-    jumpPower: 7,
-
-    velocityY: 0,
-
-    health: 100,
-
-    ammo: 30,
-
-    maxAmmo: 30,
-
-    score: 0
-};
+const remotePlayers = new Map();
 
 
-// ======================================
-// KEYBOARD
-// ======================================
+// Automatically use the same server
+// that served the webpage.
+
+const socketProtocol =
+    location.protocol === "https:"
+        ? "wss:"
+        : "ws:";
+
+const socketURL =
+    `${socketProtocol}//${location.host}`;
+
+
+function connectToServer() {
+
+    console.log(
+        "Connecting to:",
+        socketURL
+    );
+
+    socket = new WebSocket(socketURL);
+
+
+    socket.onopen = () => {
+
+        console.log(
+            "🔥 CONNECTED TO STRIKEZONE SERVER"
+        );
+    };
+
+
+    socket.onclose = () => {
+
+        console.log(
+            "❌ Disconnected from server"
+        );
+
+        setTimeout(
+            connectToServer,
+            2000
+        );
+    };
+
+
+    socket.onerror = error => {
+
+        console.log(
+            "WebSocket error:",
+            error
+        );
+    };
+
+
+    socket.onmessage = event => {
+
+        try {
+
+            const data =
+                JSON.parse(event.data);
+
+            handleServerMessage(data);
+
+        } catch (error) {
+
+            console.log(
+                "Invalid server message",
+                error
+            );
+        }
+    };
+}
+
+
+connectToServer();
+
+
+// ==========================================
+// SERVER MESSAGES
+// ==========================================
+
+function handleServerMessage(data) {
+
+    // -------------------------------
+    // WELCOME
+    // -------------------------------
+
+    if (data.type === "welcome") {
+
+        myId = data.id;
+
+        console.log(
+            "YOUR PLAYER ID:",
+            myId
+        );
+
+        // Add players already online
+
+        if (data.players) {
+
+            data.players.forEach(
+                createOrUpdatePlayer
+            );
+        }
+
+        return;
+    }
+
+
+    // -------------------------------
+    // STATE
+    // -------------------------------
+
+    if (data.type === "state") {
+
+        if (!data.players) return;
+
+        data.players.forEach(
+            createOrUpdatePlayer
+        );
+
+        return;
+    }
+
+
+    // -------------------------------
+    // SHOOT
+    // -------------------------------
+
+    if (data.type === "shot") {
+
+        if (data.id !== myId) {
+
+            showRemoteShot(data.id);
+        }
+
+        return;
+    }
+
+
+    // -------------------------------
+    // KILL
+    // -------------------------------
+
+    if (data.type === "kill") {
+
+        console.log(
+            "KILL:",
+            data.killer,
+            "→",
+            data.victim
+        );
+
+        if (data.killer === myId) {
+
+            showKillMessage();
+        }
+
+        return;
+    }
+}
+
+
+// ==========================================
+// CREATE PLAYER
+// ==========================================
+
+function createOrUpdatePlayer(player) {
+
+    // Don't create ourselves
+    if (player.id === myId) {
+
+        updateLocalPlayer(player);
+
+        return;
+    }
+
+
+    let mesh =
+        remotePlayers.get(player.id);
+
+
+    // Create new player
+
+    if (!mesh) {
+
+        mesh = createPlayerMesh(
+            player.team
+        );
+
+        mesh.userData.playerId =
+            player.id;
+
+        scene.add(mesh);
+
+        remotePlayers.set(
+            player.id,
+            mesh
+        );
+    }
+
+
+    // Update position
+
+    mesh.position.set(
+        player.x,
+        1,
+        player.z
+    );
+
+
+    // Health
+
+    mesh.userData.health =
+        player.health;
+
+}
+
+
+// ==========================================
+// PLAYER MODEL
+// ==========================================
+
+function createPlayerMesh(team) {
+
+    const group =
+        new THREE.Group();
+
+
+    const color =
+        team === "blue"
+            ? 0x2277ff
+            : 0xff3333;
+
+
+    // Body
+
+    const bodyGeometry =
+        new THREE.BoxGeometry(
+            0.8,
+            1.4,
+            0.5
+        );
+
+    const bodyMaterial =
+        new THREE.MeshStandardMaterial({
+            color: color
+        });
+
+    const body =
+        new THREE.Mesh(
+            bodyGeometry,
+            bodyMaterial
+        );
+
+    body.position.y = 0;
+
+    group.add(body);
+
+
+    // Head
+
+    const headGeometry =
+        new THREE.SphereGeometry(
+            0.3,
+            16,
+            16
+        );
+
+    const headMaterial =
+        new THREE.MeshStandardMaterial({
+            color: 0xffc7a0
+        });
+
+    const head =
+        new THREE.Mesh(
+            headGeometry,
+            headMaterial
+        );
+
+    head.position.y = 1;
+
+    group.add(head);
+
+
+    return group;
+}
+
+
+// ==========================================
+// LOCAL PLAYER
+// ==========================================
+
+function updateLocalPlayer(player) {
+
+    // Server is authoritative
+
+    camera.position.x =
+        player.x;
+
+    camera.position.y =
+        player.y;
+
+    camera.position.z =
+        player.z;
+
+
+    // Update health
+
+    const health =
+        document.querySelector(".health");
+
+    if (health) {
+
+        health.textContent =
+            `Health: ${Math.round(player.health)}`;
+    }
+
+
+    // Score
+
+    const score =
+        document.getElementById("score");
+
+    if (score) {
+
+        score.textContent =
+            `Kills: ${player.kills}`;
+    }
+}
+
+
+// ==========================================
+// MOVEMENT
+// ==========================================
 
 const keys = {};
 
@@ -243,23 +490,8 @@ document.addEventListener(
     event => {
 
         keys[event.code] = true;
-
-        if (
-            event.code === "Space" &&
-            camera.position.y <= player.height + 0.05
-        ) {
-
-            player.velocityY =
-                player.jumpPower;
-        }
-
-        if (event.code === "KeyR") {
-
-            reload();
-        }
     }
 );
-
 
 document.addEventListener(
     "keyup",
@@ -270,66 +502,13 @@ document.addEventListener(
 );
 
 
-// ======================================
-// MOUSE LOOK
-// ======================================
-
 let yaw = 0;
 let pitch = 0;
 
-document.addEventListener(
-    "mousemove",
-    event => {
+let verticalVelocity = 0;
 
-        if (
-            document.pointerLockElement !==
-            renderer.domElement
-        ) return;
+let onGround = true;
 
-        yaw -= event.movementX * 0.002;
-
-        pitch -= event.movementY * 0.002;
-
-        pitch = Math.max(
-            -Math.PI / 2,
-            Math.min(Math.PI / 2, pitch)
-        );
-
-        camera.rotation.order = "YXZ";
-
-        camera.rotation.y = yaw;
-
-        camera.rotation.x = pitch;
-    }
-);
-
-
-// ======================================
-// START GAME
-// ======================================
-
-const startButton =
-    document.getElementById("start-button");
-
-const startScreen =
-    document.getElementById("start-screen");
-
-
-startButton.addEventListener(
-    "click",
-    () => {
-
-        startScreen.style.display = "none";
-
-        renderer.domElement.requestPointerLock();
-
-    }
-);
-
-
-// ======================================
-// MOVEMENT
-// ======================================
 
 function updateMovement(delta) {
 
@@ -339,72 +518,118 @@ function updateMovement(delta) {
     ) return;
 
 
-    let speed = keys["ShiftLeft"] ||
-                keys["ShiftRight"]
-
-        ? player.sprintSpeed
-        : player.speed;
-
-
-    const direction =
-        new THREE.Vector3();
+    let forward = 0;
+    let right = 0;
 
 
     if (keys["KeyW"])
-        direction.z -= 1;
+        forward += 1;
 
     if (keys["KeyS"])
-        direction.z += 1;
-
-    if (keys["KeyA"])
-        direction.x -= 1;
+        forward -= 1;
 
     if (keys["KeyD"])
-        direction.x += 1;
+        right += 1;
+
+    if (keys["KeyA"])
+        right -= 1;
 
 
-    if (direction.length() > 0) {
-
-        direction.normalize();
-
-        direction.applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            yaw
+    const length =
+        Math.hypot(
+            forward,
+            right
         );
 
 
-        camera.position.x +=
-            direction.x * speed * delta;
+    if (length > 0) {
 
-        camera.position.z +=
-            direction.z * speed * delta;
+        forward /= length;
+        right /= length;
+    }
+
+
+    let speed = 5;
+
+
+    if (
+        keys["ShiftLeft"] ||
+        keys["ShiftRight"]
+    ) {
+
+        speed = 9;
+    }
+
+
+    // Forward direction
+
+    const forwardX =
+        -Math.sin(yaw);
+
+    const forwardZ =
+        -Math.cos(yaw);
+
+
+    // Right direction
+
+    const rightX =
+        Math.cos(yaw);
+
+    const rightZ =
+        -Math.sin(yaw);
+
+
+    camera.position.x +=
+        (
+            forwardX * forward +
+            rightX * right
+        ) * speed * delta;
+
+
+    camera.position.z +=
+        (
+            forwardZ * forward +
+            rightZ * right
+        ) * speed * delta;
+
+
+    // Jump
+
+    if (
+        keys["Space"] &&
+        onGround
+    ) {
+
+        verticalVelocity = 7;
+
+        onGround = false;
     }
 
 
     // Gravity
 
-    player.velocityY -=
+    verticalVelocity -=
         20 * delta;
 
     camera.position.y +=
-        player.velocityY * delta;
+        verticalVelocity * delta;
 
 
     // Ground
 
     if (
-        camera.position.y <
-        player.height
+        camera.position.y <= 1.6
     ) {
 
-        camera.position.y =
-            player.height;
+        camera.position.y = 1.6;
 
-        player.velocityY = 0;
+        verticalVelocity = 0;
+
+        onGround = true;
     }
 
 
-    // Arena boundaries
+    // Arena boundary
 
     camera.position.x =
         THREE.MathUtils.clamp(
@@ -419,29 +644,159 @@ function updateMovement(delta) {
             -23,
             23
         );
+
+
+    // Send position to server
+
+    sendMovement();
 }
 
 
-// ======================================
+// ==========================================
+// SEND MOVEMENT
+// ==========================================
+
+let lastMovementSend = 0;
+
+
+function sendMovement() {
+
+    if (!socket) return;
+
+    if (
+        socket.readyState !==
+        WebSocket.OPEN
+    ) return;
+
+
+    const now = performance.now();
+
+
+    // 20 updates per second
+
+    if (
+        now - lastMovementSend < 50
+    ) return;
+
+
+    lastMovementSend = now;
+
+
+    socket.send(
+        JSON.stringify({
+
+            type: "move",
+
+            x: camera.position.x,
+
+            y: camera.position.y,
+
+            z: camera.position.z
+        })
+    );
+}
+
+
+// ==========================================
+// MOUSE LOOK
+// ==========================================
+
+document.addEventListener(
+    "mousemove",
+    event => {
+
+        if (
+            document.pointerLockElement !==
+            renderer.domElement
+        ) return;
+
+
+        yaw -=
+            event.movementX * 0.002;
+
+
+        pitch -=
+            event.movementY * 0.002;
+
+
+        pitch =
+            Math.max(
+                -1.5,
+                Math.min(
+                    1.5,
+                    pitch
+                )
+            );
+
+
+        camera.rotation.order =
+            "YXZ";
+
+
+        camera.rotation.y =
+            yaw;
+
+        camera.rotation.x =
+            pitch;
+    }
+);
+
+
+// ==========================================
+// START GAME
+// ==========================================
+
+const startScreen =
+    document.getElementById(
+        "start-screen"
+    );
+
+
+const startButton =
+    document.getElementById(
+        "start-button"
+    );
+
+
+startButton.addEventListener(
+    "click",
+    () => {
+
+        startScreen.style.display =
+            "none";
+
+
+        renderer.domElement
+            .requestPointerLock();
+    }
+);
+
+
+// ==========================================
 // SHOOTING
-// ======================================
+// ==========================================
 
 const raycaster =
     new THREE.Raycaster();
 
-const mouse =
-    new THREE.Vector2(0, 0);
+
+let lastShot = 0;
 
 
 document.addEventListener(
     "mousedown",
     event => {
 
+        if (event.button !== 0)
+            return;
+
+
         if (
-            event.button !== 0 ||
             document.pointerLockElement !==
             renderer.domElement
-        ) return;
+        )
+            return;
+
 
         shoot();
     }
@@ -450,224 +805,221 @@ document.addEventListener(
 
 function shoot() {
 
-    if (player.ammo <= 0) {
+    const now =
+        performance.now();
 
-        reload();
 
+    // Fire rate
+
+    if (
+        now - lastShot < 150
+    )
         return;
+
+
+    lastShot = now;
+
+
+    // Tell server we fired
+
+    if (
+        socket &&
+        socket.readyState ===
+        WebSocket.OPEN
+    ) {
+
+        socket.send(
+            JSON.stringify({
+
+                type: "shoot"
+            })
+        );
     }
 
 
-    player.ammo--;
-
+    // Raycast
 
     raycaster.setFromCamera(
-        mouse,
+        new THREE.Vector2(0, 0),
         camera
+    );
+
+
+    const targets =
+        [];
+
+
+    remotePlayers.forEach(
+        player => {
+
+            targets.push(player);
+        }
     );
 
 
     const hits =
         raycaster.intersectObjects(
-            enemies,
+            targets,
             true
         );
 
 
-    if (hits.length > 0) {
+    if (hits.length === 0)
+        return;
 
-        const enemy =
-            hits[0].object;
 
-        killEnemy(enemy);
+    let target =
+        hits[0].object;
+
+
+    // Find player group
+
+    while (
+        target.parent &&
+        !target.userData.playerId
+    ) {
+
+        target =
+            target.parent;
     }
 
 
-    updateHUD();
+    const targetId =
+        target.userData.playerId;
+
+
+    if (!targetId)
+        return;
+
+
+    // Tell server who we hit
+
+    if (
+        socket &&
+        socket.readyState ===
+        WebSocket.OPEN
+    ) {
+
+        socket.send(
+            JSON.stringify({
+
+                type: "damage",
+
+                target: targetId
+            })
+        );
+    }
 }
 
 
-// ======================================
-// RELOAD
-// ======================================
+// ==========================================
+// REMOTE SHOOT EFFECT
+// ==========================================
 
-let reloading = false;
+function showRemoteShot(id) {
 
-function reload() {
-
-    if (reloading) return;
-
-    if (
-        player.ammo ===
-        player.maxAmmo
-    ) return;
+    const player =
+        remotePlayers.get(id);
 
 
-    reloading = true;
+    if (!player)
+        return;
+
+
+    const flash =
+        new THREE.PointLight(
+            0xffffaa,
+            5,
+            5
+        );
+
+
+    flash.position.set(
+        0,
+        0.5,
+        -0.7
+    );
+
+
+    player.add(flash);
 
 
     setTimeout(
         () => {
 
-            player.ammo =
-                player.maxAmmo;
-
-            reloading = false;
-
-            updateHUD();
+            player.remove(flash);
 
         },
-        1200
+        70
     );
 }
 
 
-// ======================================
-// ENEMIES
-// ======================================
+// ==========================================
+// KILL MESSAGE
+// ==========================================
 
-const enemies = [];
+function showKillMessage() {
 
-
-function createEnemy() {
-
-    const geometry =
-        new THREE.BoxGeometry(
-            1,
-            2,
-            1
-        );
+    const message =
+        document.createElement("div");
 
 
-    const material =
-        new THREE.MeshStandardMaterial({
-            color: 0xff2222
-        });
+    message.textContent =
+        "🔥 ELIMINATION +1";
 
 
-    const enemy =
-        new THREE.Mesh(
-            geometry,
-            material
-        );
+    message.style.position =
+        "fixed";
 
 
-    enemy.position.set(
-        Math.random() * 35 - 17.5,
-        1,
-        Math.random() * 35 - 17.5
+    message.style.top =
+        "45%";
+
+
+    message.style.left =
+        "50%";
+
+
+    message.style.transform =
+        "translate(-50%, -50%)";
+
+
+    message.style.fontSize =
+        "30px";
+
+
+    message.style.fontWeight =
+        "bold";
+
+
+    message.style.color =
+        "white";
+
+
+    message.style.zIndex =
+        "999";
+
+
+    document.body.appendChild(
+        message
     );
-
-
-    scene.add(enemy);
-
-    enemies.push(enemy);
-}
-
-
-// Spawn enemies
-
-for (let i = 0; i < 8; i++) {
-
-    createEnemy();
-}
-
-
-// ======================================
-// ENEMY AI
-// ======================================
-
-function updateEnemies(delta) {
-
-    enemies.forEach(enemy => {
-
-        const direction =
-            new THREE.Vector3();
-
-        direction.subVectors(
-            camera.position,
-            enemy.position
-        );
-
-        direction.y = 0;
-
-
-        if (
-            direction.length() > 2
-        ) {
-
-            direction.normalize();
-
-            enemy.position.add(
-                direction.multiplyScalar(
-                    delta * 1.5
-                )
-            );
-        }
-
-    });
-}
-
-
-// ======================================
-// KILL ENEMY
-// ======================================
-
-function killEnemy(enemy) {
-
-    const index =
-        enemies.indexOf(enemy);
-
-    if (index !== -1) {
-
-        enemies.splice(index, 1);
-    }
-
-
-    scene.remove(enemy);
-
-
-    player.score += 100;
 
 
     setTimeout(
-        createEnemy,
+        () => {
+
+            message.remove();
+
+        },
         1000
     );
-
-
-    updateHUD();
 }
 
 
-// ======================================
-// HUD
-// ======================================
-
-function updateHUD() {
-
-    document.querySelector(
-        ".health"
-    ).textContent =
-        `Health: ${Math.round(player.health)}`;
-
-
-    document.querySelector(
-        ".ammo"
-    ).textContent =
-        `Ammo: ${player.ammo}/${player.maxAmmo}`;
-
-
-    document.getElementById(
-        "score"
-    ).textContent =
-        `Score: ${player.score}`;
-}
-
-
-// ======================================
-// RESIZE
-// ======================================
+// ==========================================
+// WINDOW RESIZE
+// ==========================================
 
 window.addEventListener(
     "resize",
@@ -677,7 +1029,9 @@ window.addEventListener(
             window.innerWidth /
             window.innerHeight;
 
+
         camera.updateProjectionMatrix();
+
 
         renderer.setSize(
             window.innerWidth,
@@ -687,9 +1041,9 @@ window.addEventListener(
 );
 
 
-// ======================================
+// ==========================================
 // GAME LOOP
-// ======================================
+// ==========================================
 
 const clock =
     new THREE.Clock();
@@ -711,7 +1065,6 @@ function animate() {
 
     updateMovement(delta);
 
-    updateEnemies(delta);
 
     renderer.render(
         scene,
@@ -719,7 +1072,5 @@ function animate() {
     );
 }
 
-
-updateHUD();
 
 animate();
