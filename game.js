@@ -1,402 +1,725 @@
-const game = document.getElementById("game");
-const crosshair = document.getElementById("crosshair");
-const scoreText = document.getElementById("score");
-const healthText = document.querySelector(".health");
-const ammoText = document.querySelector(".ammo");
-const startScreen = document.getElementById("start-screen");
-const startButton = document.getElementById("start-button");
+// ======================================
+// FPS ARENA - 3D CLIENT
+// ======================================
 
-let gameStarted = false;
+const scene = new THREE.Scene();
 
-let player = {
-    x: window.innerWidth / 2,
-    y: window.innerHeight / 2,
-    speed: 4,
-    sprintSpeed: 7,
+scene.background = new THREE.Color(0x101010);
+
+scene.fog = new THREE.Fog(
+    0x101010,
+    20,
+    100
+);
+
+
+// ======================================
+// CAMERA
+// ======================================
+
+const camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
+
+camera.position.set(0, 2, 5);
+
+
+// ======================================
+// RENDERER
+// ======================================
+
+const renderer = new THREE.WebGLRenderer({
+    antialias: true
+});
+
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+);
+
+document
+    .getElementById("game")
+    .appendChild(renderer.domElement);
+
+
+// ======================================
+// LIGHTING
+// ======================================
+
+const ambientLight = new THREE.HemisphereLight(
+    0xffffff,
+    0x333333,
+    2
+);
+
+scene.add(ambientLight);
+
+const sun = new THREE.DirectionalLight(
+    0xffffff,
+    2
+);
+
+sun.position.set(10, 20, 10);
+
+scene.add(sun);
+
+
+// ======================================
+// FLOOR
+// ======================================
+
+const floorGeometry =
+    new THREE.PlaneGeometry(100, 100);
+
+const floorMaterial =
+    new THREE.MeshStandardMaterial({
+        color: 0x333333
+    });
+
+const floor =
+    new THREE.Mesh(
+        floorGeometry,
+        floorMaterial
+    );
+
+floor.rotation.x = -Math.PI / 2;
+
+scene.add(floor);
+
+
+// ======================================
+// WALL FUNCTION
+// ======================================
+
+function createWall(
+    x,
+    y,
+    z,
+    width,
+    height,
+    depth
+) {
+
+    const geometry =
+        new THREE.BoxGeometry(
+            width,
+            height,
+            depth
+        );
+
+    const material =
+        new THREE.MeshStandardMaterial({
+            color: 0x555555
+        });
+
+    const wall =
+        new THREE.Mesh(
+            geometry,
+            material
+        );
+
+    wall.position.set(x, y, z);
+
+    scene.add(wall);
+
+    return wall;
+}
+
+
+// ======================================
+// ARENA WALLS
+// ======================================
+
+createWall(
+    0,
+    3,
+    -25,
+    50,
+    6,
+    1
+);
+
+createWall(
+    0,
+    3,
+    25,
+    50,
+    6,
+    1
+);
+
+createWall(
+    -25,
+    3,
+    0,
+    1,
+    6,
+    50
+);
+
+createWall(
+    25,
+    3,
+    0,
+    1,
+    6,
+    50
+);
+
+
+// ======================================
+// COVER
+// ======================================
+
+createWall(
+    -8,
+    2,
+    -5,
+    8,
+    4,
+    2
+);
+
+createWall(
+    8,
+    2,
+    5,
+    8,
+    4,
+    2
+);
+
+createWall(
+    0,
+    2,
+    -12,
+    5,
+    4,
+    2
+);
+
+
+// ======================================
+// PLAYER
+// ======================================
+
+const player = {
+
+    height: 1.8,
+
+    speed: 5,
+
+    sprintSpeed: 9,
+
+    jumpPower: 7,
+
+    velocityY: 0,
+
     health: 100,
+
     ammo: 30,
+
     maxAmmo: 30,
+
     score: 0
 };
 
-let keys = {};
-let enemies = [];
-let mouseX = 0;
-let mouseY = 0;
-let lastShot = 0;
-let reloadTime = false;
 
-// =========================
-// START GAME
-// =========================
-
-startButton?.addEventListener("click", () => {
-    gameStarted = true;
-    startScreen.style.display = "none";
-
-    document.body.requestPointerLock?.();
-
-    player.health = 100;
-    player.ammo = 30;
-    player.score = 0;
-
-    enemies.forEach(enemy => enemy.remove());
-    enemies = [];
-
-    updateHUD();
-
-    for (let i = 0; i < 5; i++) {
-        spawnEnemy();
-    }
-});
-
-// =========================
+// ======================================
 // KEYBOARD
-// =========================
+// ======================================
 
-document.addEventListener("keydown", e => {
-    keys[e.key.toLowerCase()] = true;
+const keys = {};
 
-    // Reload
-    if (e.key.toLowerCase() === "r") {
-        reload();
+document.addEventListener(
+    "keydown",
+    event => {
+
+        keys[event.code] = true;
+
+        if (
+            event.code === "Space" &&
+            camera.position.y <= player.height + 0.05
+        ) {
+
+            player.velocityY =
+                player.jumpPower;
+        }
+
+        if (event.code === "KeyR") {
+
+            reload();
+        }
     }
-});
+);
 
-document.addEventListener("keyup", e => {
-    keys[e.key.toLowerCase()] = false;
-});
 
-// =========================
+document.addEventListener(
+    "keyup",
+    event => {
+
+        keys[event.code] = false;
+    }
+);
+
+
+// ======================================
 // MOUSE LOOK
-// =========================
+// ======================================
 
-document.addEventListener("mousemove", e => {
-    if (!gameStarted) return;
-    if (document.pointerLockElement !== document.body) return;
+let yaw = 0;
+let pitch = 0;
 
-    mouseX += e.movementX;
-    mouseY += e.movementY;
+document.addEventListener(
+    "mousemove",
+    event => {
 
-    // Keep the mouse movement from becoming ridiculous
-    mouseX = Math.max(-500, Math.min(500, mouseX));
-    mouseY = Math.max(-300, Math.min(300, mouseY));
+        if (
+            document.pointerLockElement !==
+            renderer.domElement
+        ) return;
 
-    updateCamera();
-});
+        yaw -= event.movementX * 0.002;
 
-function updateCamera() {
-    if (!crosshair) return;
+        pitch -= event.movementY * 0.002;
 
-    crosshair.style.transform =
-        `translate(-50%, -50%)`;
-}
+        pitch = Math.max(
+            -Math.PI / 2,
+            Math.min(Math.PI / 2, pitch)
+        );
 
-// =========================
-// PLAYER MOVEMENT
-// =========================
+        camera.rotation.order = "YXZ";
 
-function updatePlayer() {
-    if (!gameStarted) return;
+        camera.rotation.y = yaw;
 
-    let speed = keys["shift"]
+        camera.rotation.x = pitch;
+    }
+);
+
+
+// ======================================
+// START GAME
+// ======================================
+
+const startButton =
+    document.getElementById("start-button");
+
+const startScreen =
+    document.getElementById("start-screen");
+
+
+startButton.addEventListener(
+    "click",
+    () => {
+
+        startScreen.style.display = "none";
+
+        renderer.domElement.requestPointerLock();
+
+    }
+);
+
+
+// ======================================
+// MOVEMENT
+// ======================================
+
+function updateMovement(delta) {
+
+    if (
+        document.pointerLockElement !==
+        renderer.domElement
+    ) return;
+
+
+    let speed = keys["ShiftLeft"] ||
+                keys["ShiftRight"]
+
         ? player.sprintSpeed
         : player.speed;
 
-    let dx = 0;
-    let dy = 0;
 
-    if (keys["w"]) dy -= speed;
-    if (keys["s"]) dy += speed;
-    if (keys["a"]) dx -= speed;
-    if (keys["d"]) dx += speed;
+    const direction =
+        new THREE.Vector3();
 
-    // Diagonal movement normalization
-    if (dx !== 0 && dy !== 0) {
-        dx *= 0.707;
-        dy *= 0.707;
+
+    if (keys["KeyW"])
+        direction.z -= 1;
+
+    if (keys["KeyS"])
+        direction.z += 1;
+
+    if (keys["KeyA"])
+        direction.x -= 1;
+
+    if (keys["KeyD"])
+        direction.x += 1;
+
+
+    if (direction.length() > 0) {
+
+        direction.normalize();
+
+        direction.applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            yaw
+        );
+
+
+        camera.position.x +=
+            direction.x * speed * delta;
+
+        camera.position.z +=
+            direction.z * speed * delta;
     }
 
-    player.x += dx;
-    player.y += dy;
 
-    // Keep player inside the map
-    player.x = Math.max(0, Math.min(window.innerWidth, player.x));
-    player.y = Math.max(0, Math.min(window.innerHeight, player.y));
+    // Gravity
 
-    // Move the camera/world slightly
-    game.style.transform =
-        `translate(${-dx * 0.25}px, ${-dy * 0.25}px)`;
+    player.velocityY -=
+        20 * delta;
 
-    updateEnemies();
+    camera.position.y +=
+        player.velocityY * delta;
+
+
+    // Ground
+
+    if (
+        camera.position.y <
+        player.height
+    ) {
+
+        camera.position.y =
+            player.height;
+
+        player.velocityY = 0;
+    }
+
+
+    // Arena boundaries
+
+    camera.position.x =
+        THREE.MathUtils.clamp(
+            camera.position.x,
+            -23,
+            23
+        );
+
+    camera.position.z =
+        THREE.MathUtils.clamp(
+            camera.position.z,
+            -23,
+            23
+        );
 }
 
-// =========================
+
+// ======================================
 // SHOOTING
-// =========================
+// ======================================
 
-document.addEventListener("mousedown", e => {
-    if (!gameStarted) return;
+const raycaster =
+    new THREE.Raycaster();
 
-    if (e.button === 0) {
+const mouse =
+    new THREE.Vector2(0, 0);
+
+
+document.addEventListener(
+    "mousedown",
+    event => {
+
+        if (
+            event.button !== 0 ||
+            document.pointerLockElement !==
+            renderer.domElement
+        ) return;
+
         shoot();
     }
-});
+);
+
 
 function shoot() {
-    if (reloadTime) return;
-
-    const now = Date.now();
-
-    // Fire rate
-    if (now - lastShot < 150) return;
-
-    lastShot = now;
 
     if (player.ammo <= 0) {
+
         reload();
+
         return;
     }
 
+
     player.ammo--;
 
-    createMuzzleFlash();
 
-    // Find closest enemy to crosshair
-    const target = findTarget();
+    raycaster.setFromCamera(
+        mouse,
+        camera
+    );
 
-    if (target) {
-        killEnemy(target);
+
+    const hits =
+        raycaster.intersectObjects(
+            enemies,
+            true
+        );
+
+
+    if (hits.length > 0) {
+
+        const enemy =
+            hits[0].object;
+
+        killEnemy(enemy);
     }
+
 
     updateHUD();
 }
 
-// =========================
-// TARGET DETECTION
-// =========================
 
-function findTarget() {
-    if (enemies.length === 0) return null;
+// ======================================
+// RELOAD
+// ======================================
 
-    let bestTarget = null;
-    let bestDistance = Infinity;
+let reloading = false;
 
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
+function reload() {
 
-    enemies.forEach(enemy => {
-        const rect = enemy.getBoundingClientRect();
+    if (reloading) return;
 
-        const enemyX = rect.left + rect.width / 2;
-        const enemyY = rect.top + rect.height / 2;
+    if (
+        player.ammo ===
+        player.maxAmmo
+    ) return;
 
-        const distance = Math.hypot(
-            enemyX - centerX,
-            enemyY - centerY
+
+    reloading = true;
+
+
+    setTimeout(
+        () => {
+
+            player.ammo =
+                player.maxAmmo;
+
+            reloading = false;
+
+            updateHUD();
+
+        },
+        1200
+    );
+}
+
+
+// ======================================
+// ENEMIES
+// ======================================
+
+const enemies = [];
+
+
+function createEnemy() {
+
+    const geometry =
+        new THREE.BoxGeometry(
+            1,
+            2,
+            1
         );
 
-        // Enemy must be reasonably close to crosshair
-        if (distance < 100 && distance < bestDistance) {
-            bestDistance = distance;
-            bestTarget = enemy;
-        }
-    });
 
-    return bestTarget;
-}
+    const material =
+        new THREE.MeshStandardMaterial({
+            color: 0xff2222
+        });
 
-// =========================
-// MUZZLE FLASH
-// =========================
 
-function createMuzzleFlash() {
-    const flash = document.createElement("div");
+    const enemy =
+        new THREE.Mesh(
+            geometry,
+            material
+        );
 
-    flash.style.position = "fixed";
-    flash.style.left = "50%";
-    flash.style.top = "50%";
-    flash.style.width = "40px";
-    flash.style.height = "40px";
-    flash.style.transform = "translate(-50%, -50%)";
-    flash.style.background = "white";
-    flash.style.borderRadius = "50%";
-    flash.style.opacity = "0.8";
-    flash.style.zIndex = "999";
 
-    document.body.appendChild(flash);
+    enemy.position.set(
+        Math.random() * 35 - 17.5,
+        1,
+        Math.random() * 35 - 17.5
+    );
 
-    setTimeout(() => {
-        flash.remove();
-    }, 50);
-}
 
-// =========================
-// ENEMIES
-// =========================
+    scene.add(enemy);
 
-function spawnEnemy() {
-    const enemy = document.createElement("div");
-
-    enemy.className = "enemy";
-
-    enemy.style.position = "absolute";
-    enemy.style.width = "50px";
-    enemy.style.height = "70px";
-    enemy.style.background = "#e00000";
-    enemy.style.borderRadius = "8px";
-    enemy.style.boxShadow = "0 0 15px rgba(255,0,0,.5)";
-
-    enemy.style.left =
-        Math.random() * (window.innerWidth - 80) + "px";
-
-    enemy.style.top =
-        Math.random() * (window.innerHeight - 150) + "px";
-
-    game.appendChild(enemy);
     enemies.push(enemy);
 }
 
-// =========================
+
+// Spawn enemies
+
+for (let i = 0; i < 8; i++) {
+
+    createEnemy();
+}
+
+
+// ======================================
 // ENEMY AI
-// =========================
+// ======================================
 
-function updateEnemies() {
+function updateEnemies(delta) {
+
     enemies.forEach(enemy => {
-        const rect = enemy.getBoundingClientRect();
 
-        const enemyX = rect.left + rect.width / 2;
-        const enemyY = rect.top + rect.height / 2;
+        const direction =
+            new THREE.Vector3();
 
-        const dx = window.innerWidth / 2 - enemyX;
-        const dy = window.innerHeight / 2 - enemyY;
+        direction.subVectors(
+            camera.position,
+            enemy.position
+        );
 
-        const distance = Math.hypot(dx, dy);
+        direction.y = 0;
 
-        // Enemy slowly moves toward player
-        if (distance > 100) {
-            const speed = 0.4;
 
-            enemy.style.left =
-                rect.left + (dx / distance) * speed + "px";
+        if (
+            direction.length() > 2
+        ) {
 
-            enemy.style.top =
-                rect.top + (dy / distance) * speed + "px";
+            direction.normalize();
+
+            enemy.position.add(
+                direction.multiplyScalar(
+                    delta * 1.5
+                )
+            );
         }
 
-        // Enemy attacks when close
-        if (distance < 100) {
-            takeDamage(0.15);
-        }
     });
 }
 
-// =========================
+
+// ======================================
 // KILL ENEMY
-// =========================
+// ======================================
 
 function killEnemy(enemy) {
-    enemy.remove();
 
-    enemies = enemies.filter(e => e !== enemy);
+    const index =
+        enemies.indexOf(enemy);
+
+    if (index !== -1) {
+
+        enemies.splice(index, 1);
+    }
+
+
+    scene.remove(enemy);
+
 
     player.score += 100;
 
-    updateHUD();
 
-    // Spawn replacement
-    setTimeout(() => {
-        if (gameStarted) {
-            spawnEnemy();
-        }
-    }, 1000);
-}
+    setTimeout(
+        createEnemy,
+        1000
+    );
 
-// =========================
-// DAMAGE
-// =========================
-
-function takeDamage(amount) {
-    player.health -= amount;
-
-    if (player.health <= 0) {
-        player.health = 0;
-        gameOver();
-    }
 
     updateHUD();
 }
 
-// =========================
-// RELOAD
-// =========================
 
-function reload() {
-    if (reloadTime) return;
-    if (player.ammo === player.maxAmmo) return;
-
-    reloadTime = true;
-
-    if (ammoText) {
-        ammoText.textContent = "RELOADING...";
-    }
-
-    setTimeout(() => {
-        player.ammo = player.maxAmmo;
-        reloadTime = false;
-
-        updateHUD();
-    }, 1200);
-}
-
-// =========================
+// ======================================
 // HUD
-// =========================
+// ======================================
 
 function updateHUD() {
-    if (healthText) {
-        healthText.textContent =
-            `Health: ${Math.round(player.health)}`;
-    }
 
-    if (ammoText) {
-        ammoText.textContent =
-            `Ammo: ${player.ammo}/${player.maxAmmo}`;
-    }
+    document.querySelector(
+        ".health"
+    ).textContent =
+        `Health: ${Math.round(player.health)}`;
 
-    if (scoreText) {
-        scoreText.textContent =
-            `Score: ${player.score}`;
-    }
+
+    document.querySelector(
+        ".ammo"
+    ).textContent =
+        `Ammo: ${player.ammo}/${player.maxAmmo}`;
+
+
+    document.getElementById(
+        "score"
+    ).textContent =
+        `Score: ${player.score}`;
 }
 
-// =========================
-// GAME OVER
-// =========================
 
-function gameOver() {
-    gameStarted = false;
+// ======================================
+// RESIZE
+// ======================================
 
-    document.exitPointerLock?.();
+window.addEventListener(
+    "resize",
+    () => {
 
-    startScreen.style.display = "flex";
+        camera.aspect =
+            window.innerWidth /
+            window.innerHeight;
 
-    const title = startScreen.querySelector("h1");
+        camera.updateProjectionMatrix();
 
-    if (title) {
-        title.textContent =
-            `GAME OVER — ${player.score}`;
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
     }
-}
+);
 
-// =========================
+
+// ======================================
 // GAME LOOP
-// =========================
+// ======================================
 
-function gameLoop() {
-    updatePlayer();
-    requestAnimationFrame(gameLoop);
+const clock =
+    new THREE.Clock();
+
+
+function animate() {
+
+    requestAnimationFrame(
+        animate
+    );
+
+
+    const delta =
+        Math.min(
+            clock.getDelta(),
+            0.05
+        );
+
+
+    updateMovement(delta);
+
+    updateEnemies(delta);
+
+    renderer.render(
+        scene,
+        camera
+    );
 }
 
-gameLoop();
+
 updateHUD();
+
+animate();
