@@ -811,3 +811,40 @@ function createMobileControls() {
 
 
     //
+// ==========================================
+// START GAME BUTTON
+// ==========================================
+
+const startScreen = document.getElementById("start-screen");
+const startButton = document.getElementById("start-button");
+
+function startGame() {
+    if (!startScreen) return;
+
+    startScreen.style.display = "none";
+
+    // PC mouse control
+    if (
+        !("ontouchstart" in window) &&
+        navigator.maxTouchPoints === 0
+    ) {
+        if (renderer.domElement.requestPointerLock) {
+            renderer.domElement.requestPointerLock();
+        }
+    }
+
+    console.log("🔥 STRIKEZONE STARTED");
+}
+
+if (startButton) {
+    startButton.addEventListener("click", startGame);
+
+    startButton.addEventListener(
+        "touchend",
+        function(event) {
+            event.preventDefault();
+            startGame();
+        },
+        { passive: false }
+    );
+}
